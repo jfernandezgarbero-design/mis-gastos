@@ -1031,27 +1031,29 @@ async function loadFromSheets(){
   }
 }
 
-// Primer sync: subir localStorage a Sheets si Sheets está vacío
 async function initialSync(){
   const url=sheetsUrl();if(!url)return;
   try{
+    showSyncIndicator(true);
     const resp=await fetch(url+'?action=getAll');
-    if(!resp.ok)return;
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
     const data=await resp.json();
-    const sheetsEmpty=!data.gastos||data.gastos.length===0;
-    if(sheetsEmpty&&gastos.length>0){
-      // Upload local data to Sheets
-      showSyncIndicator(true);
-      await fetch(url,{
-        method:'POST',mode:'no-cors',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({action:'syncAll',gastos,saldos,ingresos})
-      });
+    const sheetsHasData=data.gastos&&data.gastos.length>0;
+    if(sheetsHasData){
+      await loadFromSheets();
+    } else if(gastos.length>0){
+      for(const g of gastos) sheetsPost('saveGasto',{gasto:g});
+      for(const [mes,monto] of Object.entries(saldos)) sheetsPost('saveSaldo',{mes,monto});
+      for(const [mes,list] of Object.entries(ingresos))
+        for(const ing of list) sheetsPost('saveIngreso',{mes,ingreso:ing});
       showSyncIndicator(false,true);
     } else {
-      await loadFromSheets();
+      showSyncIndicator(false,true);
     }
-  }catch(e){console.warn('initialSync error',e);}
+  }catch(e){
+    console.warn('initialSync error',e);
+    showSyncIndicator(false,false);
+  }
 }
 
 function showSyncIndicator(loading, success){
