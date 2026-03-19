@@ -949,6 +949,24 @@ function closeIngresoModal(){document.getElementById('ingresoModal').classList.r
 // ── SHEETS SYNC ──
 function sheetsUrl(){return localStorage.getItem('sheets_url');}
 
+// Usar GET con parámetros - funciona cross-origin sin CORS
+async function sheetsGet(params){
+  const url=sheetsUrl();if(!url)return null;
+  try{
+    const qs=Object.entries(params).map(([k,v])=>k+'='+encodeURIComponent(typeof v==='object'?JSON.stringify(v):v)).join('&');
+    const resp=await fetch(url+'?'+qs);
+    if(!resp.ok)return null;
+    return await resp.json();
+  }catch(e){console.warn('Sheets GET error',e);return null;}
+}
+
+async function sheetsPost(action,data){
+  // Usar GET para writes también - evita CORS
+  await sheetsGet({action,...Object.fromEntries(Object.entries(data).map(([k,v])=>[k,v]))});
+}
+async function sheetsDelete(id){ await sheetsGet({action:'deleteGasto',id}); }
+async function sheetsSaveGasto(g){ await sheetsGet({action:'saveGasto',gasto:g}); }
+
 // Usar un iframe + form para bypassear CORS en POST
 function sheetsPost(action, data) {
   const url = sheetsUrl();
