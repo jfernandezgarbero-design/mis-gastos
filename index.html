@@ -949,24 +949,47 @@ function closeIngresoModal(){document.getElementById('ingresoModal').classList.r
 // ── SHEETS SYNC ──
 function sheetsUrl(){return localStorage.getItem('sheets_url');}
 
-async function sheetsPost(action,data){
-  const url=sheetsUrl();if(!url)return;
-  try{
-    await fetch(url,{
-      method:'POST',mode:'no-cors',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action,...data})
-    });
-  }catch(e){console.warn('Sheets POST error',e);}
+// Usar un iframe + form para bypassear CORS en POST
+function sheetsPost(action, data) {
+  const url = sheetsUrl();
+  if (!url) return;
+  try {
+    // Crear iframe oculto
+    const iframeId = 'sheetsFrame_' + Date.now();
+    const iframe = document.createElement('iframe');
+    iframe.name = iframeId;
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    // Crear form que postea al iframe
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = url;
+    form.target = iframeId;
+    form.style.display = 'none';
+
+    // Mandar todo como un campo JSON
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'payload';
+    input.value = JSON.stringify({action, ...data});
+    form.appendChild(input);
+
+    document.body.appendChild(form);
+    form.submit();
+
+    // Limpiar después de 5s
+    setTimeout(() => {
+      document.body.removeChild(form);
+      document.body.removeChild(iframe);
+    }, 5000);
+  } catch(e) {
+    console.warn('Sheets POST error', e);
+  }
 }
 
-async function sheetsDelete(id){
-  sheetsPost('deleteGasto',{id});
-}
-
-async function sheetsSaveGasto(g){
-  sheetsPost('saveGasto',{gasto:g});
-}
+async function sheetsDelete(id){ sheetsPost('deleteGasto',{id}); }
+async function sheetsSaveGasto(g){ sheetsPost('saveGasto',{gasto:g}); }
 
 // Cargar datos desde Sheets al abrir
 async function loadFromSheets(){
